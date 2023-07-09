@@ -290,6 +290,10 @@ if [ $# -ge 2 ]; then
 else
   target_dir=$source_dir
 fi
+# 处理第三个参数，存在则将其作为 mkvmerge 的附加参数
+if [ $# -ge 3 ]; then
+  mkvcmd_params=" $3"
+fi
 
 # 默认 IFS 分隔符为空格，对于文件名有空格的会出错，这里以换行符为分隔符
 oldIFS=$IFS
@@ -391,6 +395,9 @@ for file in $(find $find_param $source_dir -maxdepth 1 -type f \( -iname "*.mp4"
       fi
     done
   done
+
+  # 拼接附加参数
+  mkmkvcmd+=$mkvcmd_params
 
   # 显示并执行最终拼接后的命令
   echo $mkmkvcmd
