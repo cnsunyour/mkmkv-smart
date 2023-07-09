@@ -106,6 +106,7 @@ declare -A lang_map=(
   ["fi-FI"]="suomi (Suomi)"
   ["fil"]="Filipino"
   ["fil-PH"]="Filipino (Pilipinas)"
+  ["fil-PR"]="Filipino (Puerto Rico)"
   ["fo"]="føroyskt"
   ["fo-FO"]="føroyskt (Føroyar)"
   ["fr"]="français"
