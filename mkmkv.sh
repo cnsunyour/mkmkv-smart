@@ -249,6 +249,7 @@ declare -A lang_map=(
   ["uz"]="o‘zbek"
   ["uz-UZ"]="o‘zbek (Oʻzbekiston)"
   ["vi"]="Tiếng Việt"
+  ["vi-VI"]="Tiếng Việt (Việt Nam)"
   ["vi-VN"]="Tiếng Việt (Việt Nam)"
   ["xh"]="isiXhosa"
   ["xh-ZA"]="isiXhosa (South Africa)"
