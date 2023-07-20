@@ -337,9 +337,9 @@ for file in $(find $find_param $source_dir -maxdepth 1 -type f \( -iname "*.mp4"
   declare -A srt_valid=()
   lang_valid=()
   # 遍历当前 mp4 对应的所有字幕文件
-  for tmp_srt in $(find $source_dir -maxdepth 1 -type f -iname "${matchname}*.srt"); do
+  for tmp_srt in $(find $source_dir -maxdepth 1 -type f \( -iname "${matchname}*.srt" -o -iname "${matchname}*.ass" \)); do
     # 用正则表达式匹配字幕文件名，匹配成功则将其加入有效字幕列表，为了大小写不敏感，这里将字符转换为小写后再进行匹配
-    if [[ "${tmp_srt,,}" =~ [.-_]([a-z]{2,3}([-_][a-z0-9]{2,})?)([.-_\[](cc|sdh|forced(\[narrative\])?)\]?)?\.srt$ ]]; then
+    if [[ "${tmp_srt,,}" =~ [.-_]([a-z]{2,3}([-_][a-z0-9]{2,})?)([.-_\[](cc|sdh|forced(\[narrative\])?)\]?)?\.(srt|ass)$ ]]; then
       tmp_srt_lang=${BASH_REMATCH[1],,}
       tmp_srt_type=${BASH_REMATCH[4],,}
       if [ "${lang_map[$tmp_srt_lang]}" == "" ]; then
