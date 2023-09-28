@@ -69,6 +69,7 @@ declare -A lang_map=(
   ["en-IE"]="English (Ireland)"
   ["en-IN"]="English (India)"
   ["en-JM"]="English (Jamaica)"
+  ["en-NG"]="English (Nigeria)"
   ["en-NZ"]="English (New Zealand)"
   ["en-PH"]="English (Philippines)"
   ["en-SG"]="English (Singapore)"
