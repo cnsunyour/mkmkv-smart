@@ -367,7 +367,7 @@ for file in $(find $find_param $source_dir -maxdepth 1 -type f \( -iname "*.mp4"
   lang_codes=($(awk -v RS=' ' '!a[$1]++' <<<${lang_codes[@]}))
 
   # 每个文件的初始命令字符串
-  mkmkvcmd="mkvmerge -o \"$target_dir/${filename%.*}.mkv\" -S \"$file\""
+  mkmkvcmd="mkvmerge -o \"$target_dir/${filename%.*}.mkv\" -S --no-global-tags \"$file\""
 
   # 是否已经为当前文件设置过 default flag ，初始为 no
   # 一旦设置过 default flag ，则此值必须同时设为非 no
