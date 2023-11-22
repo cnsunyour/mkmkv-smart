@@ -191,6 +191,7 @@ declare -A lang_map=(
   ["nn"]="norsk nynorsk"
   ["nn-NO"]="norsk nynorsk (Norge)"
   ["no"]="norsk"
+  ["no-NO"]="norsk (Norge)"
   ["ns"]="Sesotho"
   ["ns-ZA"]="Sesotho (South Africa)"
   ["pa"]="ਪੰਜਾਬੀ"
