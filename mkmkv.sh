@@ -352,7 +352,10 @@ for file in $(find $find_param $source_dir -maxdepth 1 -type f \( -iname "*.mp4"
       srt_valid["${tmp_srt_lang}.${tmp_srt_type}"]="$tmp_srt"
       lang_valid+=("$tmp_srt_lang")
       # 清除字幕中的字体格式标签
-      sed -i 's/<[^>]*>//g' "$tmp_srt"
+      extname=${tmp_srt##*.}
+      if [ "${extname,,}" == "srt" ]; then
+        sed -i '' 's/<[^>]*>//g' "$tmp_srt"
+      fi
     else
       echo "$tmp_srt is not a valid subtitle filename."
     fi
