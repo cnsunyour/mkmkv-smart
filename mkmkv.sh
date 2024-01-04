@@ -278,7 +278,7 @@ for lang in ${!lang_map[@]}; do
 done
 
 # 预定义需要优先处理的字幕语言代码
-preset_lang_codes=(zh zh-hans zh-hant zh-cn zh-hk zh-mo zh-tw zh-sg en en-us en-gb en-au en-ca en-nz en-sg ja ja-jp ko ko-kr)
+preset_lang_codes=(zh zh-hans zh-hant zh-cn zh-hk zh-mo zh-tw zh-sg en en-us en-gb en-au en-ca en-nz en-sg en-bz en-cb en-ie en-in en-jm en-ng en-ph en-tt en-za en-zw)
 
 # 字幕类型
 # subtitle_types=('' 'cc' 'sdh' 'forced' 'forced[narrative]')
