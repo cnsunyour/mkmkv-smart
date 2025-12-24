@@ -1,15 +1,14 @@
 INSTALL_DIR = ${HOME}/.local
 
-.PHONY : all clean install
+.PHONY : all install clean
 
-all : mkmkv
-
-mkmkv : mkmkv.sh
-	shc -r -o mkmkv -f mkmkv.sh
-	chmod +x mkmkv
-
-clean :
-	rm -f mkmkv mkmkv.sh.x.c
+all :
+	@echo "Usage: make install | make clean"
 
 install :
-	cp mkmkv ${INSTALL_DIR}/bin/mkmkv
+	mkdir -p ${INSTALL_DIR}/bin
+	cp mkmkv.sh ${INSTALL_DIR}/bin/mkmkv
+	chmod +x ${INSTALL_DIR}/bin/mkmkv
+
+clean :
+	@echo "Nothing to clean"
