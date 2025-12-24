@@ -1,4 +1,4 @@
-INSTALL_DIR = /usr/local
+INSTALL_DIR = ${HOME}/.local
 
 .PHONY : all clean
 
