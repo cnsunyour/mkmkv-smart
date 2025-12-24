@@ -4,12 +4,6 @@
 
 ### 核心命令
 ```bash
-# 编译所有脚本（使用 shc 编译 bash 为可执行文件）
-make all
-
-# 清理编译产物
-make clean
-
 # 安装到 ~/.local/bin/mkmkv
 make install
 ```
@@ -26,15 +20,14 @@ make install
 ./mkmkv_调整音轨.sh
 ```
 
-**注意**: 当前项目没有配置 lint、test 或格式化工具。代码审查应使用 shellcheck（如可用）或人工审查。
+**注意**: 项目使用 shellcheck 进行代码审查。运行 `shellcheck mkmkv.sh` 检查脚本。
 
 ---
 
 ## 代码风格规范
 
 ### Shebang 行
-- 主脚本使用绝对路径 shebang（如 `#!/opt/homebrew/bin/bash`），shc 编译需要
-- 辅助脚本使用 `#!/usr/bin/env bash`（可移植性优先）
+- 所有脚本统一使用 `#!/usr/bin/env bash`（跨平台可移植性）
 
 ### 注释规范
 - **语言**: 使用中文注释
@@ -71,6 +64,8 @@ make install
 - **参数验证**: 检查目录/文件是否存在（`[ -d "$1" ]`, `[ -f "$file" ]`）
 - **错误输出**: 使用 `echo` 输出错误信息，使用 `exit` 退出
 - **静默重定向**: 使用 `&>/dev/null` 抑制不需要的输出
+- **错误统计**: 记录处理成功/失败数量，输出汇总信息
+- **退出码**: 失败时返回 `exit 1`，成功时返回 `exit 0`
 
 ### 跨平台兼容性
 - **macOS vs Linux**: 检查 `uname` 区分 Darwin（`[ "$(uname)" == "Darwin" ]`）
@@ -133,9 +128,10 @@ fi
 - **文件遍历**: 配合 `find` 命令使用
 
 ### 调试与日志
-- **显示命令**: 使用 `echo` 输出最终命令字符串
-- **执行命令**: 使用 `eval $cmd` 执行动态拼接的命令
+- **进度显示**: 显示当前处理的文件计数（`[1] 处理: filename.mp4`）
+- **静默模式**: mkvmerge 使用 `--quiet` 减少输出
 - **错误信息**: 明确指出问题原因（如 `lang $tmp_srt_lang is unknown.`）
+- **汇总信息**: 处理完成后显示总计、成功、失败的文件数量
 
 ---
 
@@ -147,7 +143,7 @@ fi
 - `mkmkv_英繁简.sh`: 英文/繁体/简体顺序
 - `mkmkv_英英简繁.sh`: 双英文字幕 + 中文字幕
 - `mkmkv_调整音轨.sh`: 音轨调整脚本
-- `Makefile`: 编译配置（使用 shc）
+- `Makefile`: 安装配置
 - `.gitignore`: 忽略编译产物和可执行文件
 
 ---
@@ -159,9 +155,6 @@ fi
   - 检查: `command -v mkvmerge`
   - 安装: `brew install mkvtoolnix` (macOS)
 - **bash**: 版本 4.0+ 推荐使用 5.2+
-- **shc**: Bash 脚本编译器（编译用）
-  - 检查: `command -v shc`
-  - 安装: `brew install shc` (macOS)
 
 ### 可选工具
 - **shellcheck**: Bash 脚本静态分析（开发时推荐）
@@ -199,6 +192,9 @@ declare -A subtitle_type_names=(['sdh']='CC' ['newtype']='Type')
 
 ## 安全注意事项
 - **不执行任意命令**: 动态拼接的命令需谨慎使用 `eval`
-- **路径验证**: 所有路径参数需验证存在性
+- **路径验证**: 所有路径参数需验证存在性，使用 `$(cd "$dir" && pwd)` 标准化
 - **文件名转义**: 正确处理含空格、特殊字符的文件名
 - **错误退出**: 使用 `exit` 确保错误时停止执行
+- **参数过滤**: 检查第三参数及之后的参数，过滤危险字符（分号、反引号、$、管道、重定向、反斜杠）
+- **临时文件**: 使用临时文件避免直接修改原文件（如字幕清理）
+- **数组执行**: 优先使用数组方式执行命令，避免 eval 的安全风险
