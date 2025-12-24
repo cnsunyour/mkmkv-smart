@@ -33,7 +33,7 @@ make install
 ## 代码风格规范
 
 ### Shebang 行
-- 主脚本使用 `#!/usr/local/bin/bash`（指定路径）
+- 主脚本使用绝对路径 shebang（如 `#!/opt/homebrew/bin/bash`），shc 编译需要
 - 辅助脚本使用 `#!/usr/bin/env bash`（可移植性优先）
 
 ### 注释规范
