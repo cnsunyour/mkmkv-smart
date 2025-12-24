@@ -1,6 +1,6 @@
 INSTALL_DIR = ${HOME}/.local
 
-.PHONY : all clean
+.PHONY : all clean install
 
 all : mkmkv
 
