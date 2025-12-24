@@ -4,7 +4,7 @@
 # 如果没有安装，退出脚本
 if ! command -v mkvmerge &>/dev/null; then
   echo "mkvmerge not found, please install mkvtoolnix"
-  exit
+  exit 1
 fi
 
 # 所有语言代码和语言名称的映射
@@ -26,17 +26,17 @@ declare -A lang_map=(
   ["ar-DZ"]="العربية (الجزائر)"
   ["ar-EG"]="العربية (مصر)"
   ["ar-IQ"]="العربية (العراق)"
-  ["ar-JO"]="العربية (الأردن)"
-  ["ar-KW"]="العربية (الكويت)"
-  ["ar-LB"]="العربية (لبنان)"
-  ["ar-LY"]="العربية (ليبيا)"
-  ["ar-MA"]="العربية (المغرب)"
-  ["ar-OM"]="العربية (عمان)"
-  ["ar-QA"]="العربية (قطر)"
-  ["ar-SA"]="العربية (المملكة العربية السعودية)"
-  ["ar-SY"]="العربية (سوريا)"
-  ["ar-TN"]="العربية (تونس)"
-  ["ar-YE"]="العربية (اليمن)"
+  ["ar-JO"]="الأردن"
+  ["ar-KW"]="الكويت"
+  ["ar-LB"]="لبنان"
+  ["ar-LY"]="ليبيا"
+  ["ar-MA"]="المغرب"
+  ["ar-OM"]="عمان"
+  ["ar-QA"]="قطر"
+  ["ar-SA"]="المملكة العربية السعودية"
+  ["ar-SY"]="سوريا"
+  ["ar-TN"]="تونس"
+  ["ar-YE"]="اليمن"
   ["as"]="অসমীয়া"
   ["av"]="Avaric"
   ["ay"]="Aymar aru"
@@ -186,8 +186,8 @@ declare -A lang_map=(
   ["kl"]="Kalaallisut"
   ["km"]="ភាសាខ្មែរ"
   ["km-KH"]="ភាសាខ្មែរ (កម្ពុជា)"
-  ["kn"]="ಕನ್ನಡ"
-  ["kn-IN"]="ಕನ್ನಡ (ಭಾರತ)"
+  ["kn"]="ಕನ್ನს"
+  ["kn-IN"]="ಕನ್ನಡ (ಭಾರત)"
   ["ko"]="한국어"
   ["kok"]="कोंकणी"
   ["kok-IN"]="कोंकणी (भारत)"
@@ -325,8 +325,8 @@ declare -A lang_map=(
   ["uk-UA"]="українська (Україна)"
   ["ur"]="اردو"
   ["ur-PK"]="اردو (پاکستان)"
-  ["uz"]="o‘zbek"
-  ["uz-UZ"]="o‘zbek (Oʻzbekiston)"
+  ["uz"]="o'zbek"
+  ["uz-UZ"]="o'zbek (Oʻzbekiston)"
   ["ve"]="Tshivenḓa"
   ["vi"]="Tiếng Việt"
   ["vi-VI"]="Tiếng Việt (Việt Nam)"
@@ -349,6 +349,12 @@ declare -A lang_map=(
   ["zu"]="isiZulu"
   ["zu-ZA"]="isiZulu (South Africa)"
 )
+# 对所有键值进行小写化复制，以解决文件判断时的大小写问题
+for lang in "${!lang_map[@]}"; do
+  if [ "${lang,,}" != "$lang" ]; then
+    lang_map[${lang,,}]=${lang_map[$lang]}
+  fi
+done
 
 # 预定义需要优先处理的字幕语言代码
 preset_lang_codes=(zh zh-hans zh-hant zh-cn zh-hk zh-mo zh-tw zh-sg en en-us en-gb en-au en-ca en-nz en-sg en-bz en-cb en-ie en-in en-jm en-ng en-ph en-tt en-za en-zw)
@@ -358,6 +364,11 @@ preset_lang_codes=(zh zh-hans zh-hant zh-cn zh-hk zh-mo zh-tw zh-sg en en-us en-
 # declare -A subtitle_type_names=(['sdh']='CC' ['forced']='Forced' ['forced[narrative]']='Forced')
 subtitle_types=('' 'cc' 'sdh')
 declare -A subtitle_type_names=(['sdh']='CC')
+
+# 统计变量（全局）
+total_files=0
+success_files=0
+failed_files=0
 
 # 处理第一个参数，存在则将其作为源路径，否则以当前路径为源路径
 if [ $# -ge 1 ] && [ -d "$1" ]; then
@@ -387,7 +398,7 @@ if [ $# -ge 3 ]; then
     mkvcmd_params+=("$param")
   done
 fi
- 
+
 # 根据操作系统类型设置 find 命令参数
 if [ "$(uname)" == "Darwin" ]; then
   find_param="-s"
@@ -399,11 +410,24 @@ fi
 major_version=$(echo "$BASH_VERSION" | cut -d '.' -f 1)
 minor_version=$(echo "$BASH_VERSION" | cut -d '.' -f 2)
 
-# 使用子shell隔离 IFS 修改，避免全局污染
-(
+# 处理函数（在子shell中执行）
+process_files() {
+  local source_dir="$1"
+  local target_dir="$2"
+  local find_param="$3"
+  shift 3
+  local extra_params=("$@")
+
+  # 使用临时文件传递统计结果
+  local stats_file
+  stats_file=$(mktemp)
+  
   # 默认 IFS 分隔符为空格，对于文件名有空格的会出错，这里以换行符为分隔符
   IFS=$'\n'
-
+  
+  # 初始化统计
+  echo "0 0 0" > "$stats_file"
+  
   # 遍历处理源路径中的所有 mp4 文件，不包括子目录
   while IFS= read -r file; do
     [ -z "$file" ] && continue
@@ -435,14 +459,21 @@ minor_version=$(echo "$BASH_VERSION" | cut -d '.' -f 2)
         tmp_srt_type=${BASH_REMATCH[4],,}
         if [ "${lang_map[$tmp_srt_lang]}" == "" ]; then
           echo "lang $tmp_srt_lang is unknown."
-          exit
+          rm -f "$stats_file"
+          exit 1
         fi
         srt_valid["${tmp_srt_lang}.${tmp_srt_type}"]="$tmp_srt"
         lang_valid+=("$tmp_srt_lang")
-        # 清除字幕中的字体格式标签
+        # 清除字幕中的字体格式标签（使用临时文件）
         extname=${tmp_srt##*.}
         if [ "${extname,,}" == "srt" ]; then
-          sed -i '' 's/<[^>]*>//g' "$tmp_srt"
+          # 使用临时文件，不直接修改原文件
+          temp_srt="${tmp_srt}.tmp"
+          if sed 's/<[^>]*>//g' "$tmp_srt" > "$temp_srt" 2>/dev/null; then
+            mv "$temp_srt" "$tmp_srt"
+          else
+            rm -f "$temp_srt"
+          fi
         fi
       else
         echo "$tmp_srt is not a valid subtitle filename."
@@ -478,8 +509,8 @@ minor_version=$(echo "$BASH_VERSION" | cut -d '.' -f 2)
       fi
     done
 
-    # 每个文件的初始命令字符串
-    mkmkvcmd="mkvmerge -o \"$target_dir/${filename%.*}.mkv\" -S --no-global-tags \"$file\""
+    # 构建 mkvmerge 命令数组
+    mkmkvcmd_arr=("mkvmerge" "-o" "$target_dir/${filename%.*}.mkv" "-S" "--no-global-tags" "$file")
 
     # 是否已经为当前文件设置过 default flag ，初始为 no
     # 一旦设置过 default flag ，则此值必须同时设为非 no
@@ -510,21 +541,52 @@ minor_version=$(echo "$BASH_VERSION" | cut -d '.' -f 2)
           else
             default_flag="no"
           fi
-          # 拼接至命令字符串中
-          mkmkvcmd+=" --sub-charset 0:UTF-8 --language 0:$lang_code --track-name 0:\"${lang_map[$lang_code]}$subtitle_type_name\" --default-track-flag 0:$default_flag \"$srt_file\""
+          # 添加到命令数组
+          mkmkvcmd_arr+=("--sub-charset" "0:UTF-8" "--language" "0:$lang_code" "--track-name" "0:${lang_map[$lang_code]}$subtitle_type_name" "--default-track-flag" "0:$default_flag" "$srt_file")
         fi
       done
     done
 
     # 拼接附加参数（已通过安全过滤）
-    if [ ${#mkvcmd_params[@]} -gt 0 ]; then
-      for param in "${mkvcmd_params[@]}"; do
-        mkmkvcmd+=" $param"
+    if [ ${#extra_params[@]} -gt 0 ]; then
+      for param in "${extra_params[@]}"; do
+        mkmkvcmd_arr+=("$param")
       done
     fi
 
-    # 显示并执行最终拼接后的命令
-    echo "$mkmkvcmd"
-    eval "$mkmkvcmd"
-  done < <(find $find_param "$source_dir" -maxdepth 1 -type f \( -iname "*.mp4" ! -iname ".*" \))
-)
+    # 执行 mkvmerge
+    local total success failed
+    read -r total success failed < "$stats_file"
+    total=$((total + 1))
+    echo "[$total] 处理: $filename"
+    if "${mkmkvcmd_arr[@]}" --quiet 2>&1; then
+      success=$((success + 1))
+    else
+      failed=$((failed + 1))
+      echo "  错误: 处理失败"
+    fi
+    echo "$total $success $failed" > "$stats_file"
+  done < <(find "$find_param" "$source_dir" -maxdepth 1 -type f \( -iname "*.mp4" ! -iname ".*" \))
+  
+  # 输出最终统计结果
+  cat "$stats_file"
+  rm -f "$stats_file"
+}
+
+# 调用处理函数并获取统计结果
+read -r total_files success_files failed_files < <(process_files "$source_dir" "$target_dir" "$find_param" "${mkvcmd_params[@]}")
+
+# 输出统计信息
+echo ""
+echo "======================================"
+echo "处理完成:"
+echo "  总计: $total_files 个文件"
+echo "  成功: $success_files 个文件"
+echo "  失败: $failed_files 个文件"
+echo "======================================"
+
+# 根据处理结果设置退出码
+if [ "$failed_files" -gt 0 ]; then
+  exit 1
+fi
+exit 0
