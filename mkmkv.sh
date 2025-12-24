@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/usr/bin/env bash
 
 # 检查是否安装了 mkvmerge
 # 如果没有安装，退出脚本
