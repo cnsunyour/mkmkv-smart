@@ -1,0 +1,18 @@
+# 核心依赖
+rapidfuzz>=3.0.0
+pyyaml>=6.0
+rich>=13.0.0
+langdetect>=1.0.9
+pysrt>=1.1.2
+
+# 开发依赖（可选）
+# 推荐使用: pip install -e ".[dev]" 安装完整开发依赖
+# 或手动安装以下包:
+pytest>=7.0.0
+pytest-cov>=4.0.0
+# black>=23.0.0  # 代码格式化工具
+# mypy>=1.0.0    # 类型检查工具
+
+# 音频检测依赖（可选）
+# 如需音频检测功能，请安装: pip install -e ".[audio]"
+# 或手动安装: pip install faster-whisper>=1.0.0

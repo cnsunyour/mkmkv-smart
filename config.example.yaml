@@ -1,0 +1,101 @@
+# mkmkv-smart 配置文件示例
+#
+# 将此文件复制为 config.yaml 并根据需要修改
+
+# 匹配配置
+match:
+  # 相似度阈值 (0-100)
+  # 越低越宽松,越高越严格
+  # 推荐值: 25-40
+  threshold: 30.0
+
+  # 匹配方法
+  # 可选值:
+  #   - token_set: 集合匹配(适合标签多的文件名)
+  #   - token_sort: 顺序无关匹配
+  #   - partial: 部分匹配
+  #   - hybrid: 混合策略(推荐,综合多种算法)
+  method: hybrid
+
+  # 是否在规范化时保留年份
+  # true: "Movie 2024" → "movie 2024"
+  # false: "Movie 2024" → "movie"
+  keep_year: true
+
+  # 是否在规范化时保留剧集编号
+  # true: "Series S01E01" → "series s01e01"
+  # false: "Series S01E01" → "series"
+  keep_episode: true
+
+# 语言配置
+language:
+  # 语言优先级列表
+  # 当有多个语言的字幕时,按此顺序设置默认字幕
+  # 第一个语言将被设为默认字幕
+  priority:
+    - zh-hans    # 简体中文
+    - zh-hant    # 繁体中文
+    - zh         # 中文(通用)
+    - en         # 英文
+    - ja         # 日文
+    - ko         # 韩文
+
+# 输出配置
+output:
+  # 默认字幕编码
+  # 大多数情况使用 UTF-8
+  default_charset: UTF-8
+
+# 语言检测配置
+language_detection:
+  # 是否启用自动语言检测
+  # 对于没有语言代码的字幕文件，自动识别语言并重命名
+  enabled: true
+
+  # 检测置信度阈值 (0.0-1.0)
+  # 只有置信度高于此值的检测结果才会被采纳
+  min_confidence: 0.8
+
+  # 最小文本长度要求（字符数）
+  # 文本长度低于此值的字幕不会被检测
+  min_chars: 100
+
+# 音频检测配置（需要安装: pip install mkmkv-smart[audio]）
+audio_detection:
+  # 是否启用音频语言检测
+  enabled: false
+
+  # Whisper 模型大小
+  # 可选值: tiny, base, small, medium, large
+  # - tiny: 39MB, 快速但准确率较低
+  # - base: 142MB, 平衡速度和准确率
+  # - small: 466MB, 高精度（推荐）
+  # - medium: 1.5GB, 更高精度
+  # - large: 2.9GB, 最高精度
+  model_size: small
+
+  # 计算设备
+  # 可选值: cpu, cuda
+  device: cpu
+
+  # 计算类型
+  # 可选值: int8, int16, float16, float32
+  # - int8: 最快，内存占用最少（推荐 CPU）
+  # - int16: CPU/GPU 平衡选择
+  # - float16: GPU 推荐
+  # - float32: 最高精度
+  compute_type: int8
+
+  # 检测置信度阈值 (0.0-1.0)
+  min_confidence: 0.7
+
+  # 采样音频长度（秒）
+  max_duration: 30
+
+  # 智能多点采样（推荐）
+  # true: 在视频多个位置采样，选择最佳结果
+  # false: 从开头开始采样，失败后重试
+  smart_sampling: true
+
+  # 非智能模式下的最大重试次数
+  max_attempts: 3
