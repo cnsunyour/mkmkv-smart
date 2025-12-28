@@ -1,0 +1,24 @@
+# PyPI 配置文件模板
+# 将此文件复制到 ~/.pypirc 并填入你的 API Token
+# 注意: 请勿将此文件提交到 Git!
+
+[distutils]
+index-servers =
+    pypi
+    testpypi
+
+[pypi]
+username = __token__
+password = pypi-YOUR_API_TOKEN_HERE
+
+[testpypi]
+repository = https://test.pypi.org/legacy/
+username = __token__
+password = pypi-YOUR_TEST_API_TOKEN_HERE
+
+# 使用说明:
+# 1. 访问 https://pypi.org/manage/account/token/ 创建 API Token
+# 2. 访问 https://test.pypi.org/manage/account/token/ 创建测试 Token
+# 3. 将上面的 YOUR_API_TOKEN_HERE 替换为实际 Token
+# 4. 复制到用户目录: cp .pypirc.template ~/.pypirc
+# 5. 设置文件权限: chmod 600 ~/.pypirc
