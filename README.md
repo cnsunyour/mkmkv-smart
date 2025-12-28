@@ -50,32 +50,45 @@ sudo apt install mkvtoolnix
 
 ## 🚀 安装
 
-### 方法 1: 从源码安装
+### 方法 1: 从 PyPI 安装（推荐）
+
+```bash
+# 基础安装（支持所有 Python 版本 3.8+）
+pip install mkmkv-smart
+
+# 包含音频检测功能（Python 3.8-3.13，需要 ~500MB）
+pip install "mkmkv-smart[audio]"
+
+# 安装指定版本
+pip install mkmkv-smart==1.1.1
+```
+
+### 方法 2: 从 GitHub 安装
+
+```bash
+# 安装最新开发版本
+pip install git+https://github.com/cnsunyour/mkmkv-smart.git
+
+# 包含音频检测功能
+pip install "git+https://github.com/cnsunyour/mkmkv-smart.git#egg=mkmkv-smart[audio]"
+```
+
+### 方法 3: 从源码安装（开发者）
 
 ```bash
 # 克隆仓库
 git clone https://github.com/cnsunyour/mkmkv-smart.git
 cd mkmkv-smart
 
-# 安装基础功能（支持所有 Python 版本 3.8+）
+# 开发模式安装
 pip install -e .
 
 # 或安装开发依赖
 pip install -e ".[dev]"
 
-# 可选：安装音频检测功能（需要 ~500MB，包括 PyTorch）
+# 可选：安装音频检测功能
 # ⚠️ 注意：Python 3.14 暂不支持，建议使用 Python 3.11-3.13
 pip install -e ".[audio]"
-```
-
-### 方法 2: 使用 pip (发布后)
-
-```bash
-# 基础安装（支持所有 Python 版本）
-pip install mkmkv-smart
-
-# 包含音频检测功能（Python 3.8-3.13）
-pip install mkmkv-smart[audio]
 ```
 
 ## 📖 使用方法

@@ -2,7 +2,29 @@
 
 mkmkv-smart 提供多种安装方式，选择最适合你的方式。
 
-## 📦 方式 1: 从 GitHub 安装（推荐）
+## 📦 方式 1: 从 PyPI 安装（推荐）
+
+### 安装最新版本
+```bash
+pip install mkmkv-smart
+```
+
+### 安装指定版本
+```bash
+pip install mkmkv-smart==1.1.1
+```
+
+### 包含音频检测功能
+```bash
+pip install "mkmkv-smart[audio]"
+```
+
+### 升级到最新版本
+```bash
+pip install --upgrade mkmkv-smart
+```
+
+## 📥 方式 2: 从 GitHub 安装
 
 ### 安装最新版本
 ```bash
@@ -19,7 +41,7 @@ pip install git+https://github.com/cnsunyour/mkmkv-smart.git@v1.1.1
 pip install "git+https://github.com/cnsunyour/mkmkv-smart.git#egg=mkmkv-smart[audio]"
 ```
 
-## 📥 方式 2: 下载 Wheel 文件安装
+## 📥 方式 3: 下载 Wheel 文件安装
 
 ### 下载预构建包
 访问 [Releases 页面](https://github.com/cnsunyour/mkmkv-smart/releases/latest) 下载：
@@ -41,7 +63,7 @@ pip download mkmkv-smart -d packages/
 pip install --no-index --find-links=packages/ mkmkv-smart
 ```
 
-## 🔧 方式 3: 从源码安装（开发者）
+## 🔧 方式 4: 从源码安装（开发者）
 
 ### 克隆仓库
 ```bash
@@ -66,7 +88,7 @@ pip install -e ".[dev]"
 pip install -e ".[audio,dev]"
 ```
 
-## 🐳 方式 4: Docker 容器
+## 🐳 方式 5: Docker 容器
 
 ### 使用预构建镜像（TODO）
 ```bash
@@ -98,7 +120,7 @@ docker build -t mkmkv-smart .
 docker run -v $(pwd):/workspace mkmkv-smart --dry-run .
 ```
 
-## 🍺 方式 5: Homebrew（macOS，TODO）
+## 🍺 方式 6: Homebrew（macOS，TODO）
 
 ```bash
 # 待实现
@@ -155,6 +177,11 @@ mkmkv-smart --help
 ```
 
 ## 🆙 更新
+
+### 从 PyPI 更新
+```bash
+pip install --upgrade mkmkv-smart
+```
 
 ### 从 GitHub 更新
 ```bash

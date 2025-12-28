@@ -8,13 +8,12 @@ version = "1.1.1"
 description = "智能视频字幕合并工具"
 authors = [{name = "Sunn Yao", email = "sunyour@gmail.com"}]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.8"
 keywords = ["mkvmerge", "subtitle", "video", "mkv", "fuzzy-matching"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -32,6 +31,12 @@ dependencies = [
     "langdetect>=1.0.9",
     "scipy>=1.9.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cnsunyour/mkmkv-smart"
+Repository = "https://github.com/cnsunyour/mkmkv-smart"
+Issues = "https://github.com/cnsunyour/mkmkv-smart/issues"
+Changelog = "https://github.com/cnsunyour/mkmkv-smart/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
