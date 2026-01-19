@@ -4,455 +4,751 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个用于批量合并视频文件和字幕到 MKV 容器的 Bash 脚本集合。主要使用 `mkvmerge` 工具（来自 mkvtoolnix）进行媒体封装。
+mkmkv-smart 是一个智能视频字幕合并工具，使用 Python 开发，基于先进的模糊匹配算法自动匹配视频和字幕文件并合并为 MKV 容器。
 
-**核心功能**:
-- 自动检测和匹配字幕文件的语言代码
-- 智能文件名匹配：支持视频和字幕文件名不完全一致的场景
-- 智能字幕优先级排序：自动将简体中文、繁体中文、英文字幕排在前三位
-- 支持多种字幕顺序和音轨调整
-- 干运行模式：预览匹配结果和执行命令，无需实际执行
-- 智能处理文件名中的特殊字符和空格
-- 跨平台支持（macOS 和 Linux）
+**核心特性**:
+- 🎯 **智能匹配**: 使用 rapidfuzz 多算法混合策略（Token Set, Partial, Hybrid 等）
+- 🌐 **多语言支持**: 支持 350+ 语言，自动识别语言代码和别名
+- 🔍 **语言自动检测**:
+  - 字幕语言检测（langdetect，支持简繁体区分）
+  - 音频语言检测（Faster-Whisper AI，可选）
+- 🎨 **全局最优匹配**: 使用匈牙利算法确保最佳字幕分配
+- ⚙️ **灵活配置**: YAML 配置文件 + 命令行参数
+- 🎨 **美观输出**: Rich 库彩色表格和进度显示
+- 🔍 **干运行模式**: 预览匹配结果
+- 📦 **批量处理**: 一次处理整个目录
 
-**脚本对比**:
-
-| 脚本 | 匹配方式 | 使用场景 | 预处理需求 |
-|------|---------|---------|-----------|
-| `mkmkv.sh` | 精确前缀匹配 | 文件名规范，追求速度 | 需要手动统一文件名 |
-| `mkmkv_smart.sh` | 智能相似度匹配 | 文件名不规范，杂乱命名 | 无需预处理 ✅ |
-| `mkmkv_*.sh` | 固定顺序 | 特定字幕顺序需求 | 需要手动统一文件名 |
+**技术栈**:
+- Python 3.8+ (音频检测需 3.8-3.13)
+- rapidfuzz: 模糊匹配
+- scipy: 匈牙利算法
+- Rich: 终端 UI
+- langdetect: 字幕语言检测
+- Faster-Whisper: 音频语言检测（可选）
+- pytest: 测试框架（275+ 测试用例）
 
 ## 常用命令
 
 ### 安装
+
 ```bash
-make install  # 安装到 ~/.local/bin/mkmkv
-```
+# 从 PyPI 安装（推荐）
+pip install mkmkv-smart
 
-### 运行脚本
-```bash
-# 智能匹配脚本（推荐，无需手动改名）
-./mkmkv_smart.sh [源目录] [目标目录] [mkvmerge额外参数]
-./mkmkv_smart.sh --dry-run [源目录]  # 干运行：预览匹配结果
-./mkmkv_smart.sh -n [源目录]         # 干运行简写
+# 包含音频检测功能
+pip install "mkmkv-smart[audio]"
 
-# 主脚本（精确匹配，需要文件名前缀一致）
-./mkmkv.sh [源目录] [目标目录] [mkvmerge额外参数]
+# 从 GitHub 安装最新版
+pip install git+https://github.com/cnsunyour/mkmkv-smart.git
 
-# 特定字幕顺序的脚本
-./mkmkv_繁简英.sh [源目录] [目标目录]
-./mkmkv_英简繁.sh [源目录] [目标目录]
-./mkmkv_英繁简.sh [源目录] [目标目录]
-./mkmkv_英英简繁.sh [源目录] [目标目录]
-
-# 音轨调整脚本
-./mkmkv_调整音轨.sh
-```
-
-### Python 工具 (mkmkv-smart)
-
-**安装**:
-```bash
-# 开发模式安装
+# 开发模式安装（从源码）
+git clone https://github.com/cnsunyour/mkmkv-smart.git
+cd mkmkv-smart
 pip install -e .
-# 或正式安装
-pip install .
+
+# 安装开发依赖
+pip install -e ".[dev]"
+
+# 安装所有功能
+pip install -e ".[audio,dev]"
 ```
 
-**基本用法**:
+### 基本使用
+
 ```bash
-mkmkv-smart <源目录> [输出目录] [选项]
-```
-
-**命令行参数**:
-- `源目录`: 包含视频和字幕文件的目录（必需）
-- `输出目录`: 输出 MKV 文件的目录（可选，默认为源目录）
-- `--dry-run`, `-n`: 干运行模式，仅显示匹配结果和将要执行的命令
-- `--threshold <值>`: 设置匹配相似度阈值（0-100，默认 30）
-- `--method <方法>`: 设置匹配算法（token_sort, token_set 等）
-- `--config <文件>`: 指定配置文件路径
-- `--track-order <顺序>`: **新增** 指定轨道顺序，格式为 `文件编号:轨道编号`
-
-**轨道顺序参数 (--track-order)**:
-
-格式：`文件编号:轨道编号,文件编号:轨道编号,...`
-- `0` = 视频文件
-- `1+` = 字幕文件（按添加顺序）
-
-示例：
-```bash
-# 视频轨0, 音轨1, 第1个字幕, 第2个字幕
---track-order 0:0,0:1,1:0,2:0
-
-# 仅视频轨和音轨（不包含字幕）
---track-order 0:0,0:1
-
-# 调整音轨顺序（先次音轨，再主音轨）
---track-order 0:0,0:2,0:1,1:0
-```
-
-**使用示例**:
-```bash
-# 基本使用
-mkmkv-smart ~/Downloads ~/Movies
-
-# 干运行：预览匹配结果
+# 预览匹配结果（干运行）
 mkmkv-smart --dry-run ~/Downloads
+
+# 执行合并（输出到源目录）
+mkmkv-smart ~/Downloads
+
+# 指定输出目录
+mkmkv-smart ~/Downloads ~/Movies
 
 # 自定义相似度阈值
 mkmkv-smart ~/Downloads ~/Movies --threshold 50
 
-# 指定轨道顺序（视频轨0，音轨1，简体字幕，英文字幕）
-mkmkv-smart ~/Downloads ~/Movies --track-order 0:0,0:1,1:0,2:0
-
 # 使用配置文件
-mkmkv-smart ~/Downloads --config ~/.config/mkmkv-smart.yaml
+mkmkv-smart ~/Downloads --config config.yaml
+
+# 指定轨道顺序
+mkmkv-smart ~/Downloads --track-order 0:0,0:1,1:0,2:0
+
+# 启用音频语言检测
+mkmkv-smart ~/Downloads --detect-audio-language
+
+# 启用字幕语言检测并重命名
+mkmkv-smart ~/Downloads --detect-subtitle-language --rename-subtitles
 ```
 
-**特性对比**:
+### 开发和测试
 
-| 特性 | Bash 版本 | Python 版本 |
-|------|----------|------------|
-| 智能文件名匹配 | ✅ | ✅ |
-| 自动语言代码检测 | ✅ | ✅ |
-| 字幕优先级排序 | 手动配置 | ✅ 自动 |
-| 轨道顺序控制 | `mkmkv_调整音轨.sh` | ✅ `--track-order` |
-| 配置文件支持 | ❌ | ✅ |
-| 测试覆盖率 | ❌ | ✅ 275+ 测试 |
-| 安全性 | 基础 | ✅ 增强 |
-
-### 使用示例
-
-**场景 1: 杂乱命名（智能匹配）**
 ```bash
-# 文件结构（视频和字幕文件名不完全一致）
-Movie.2024.1080p.BluRay.x264.mp4
-Movie.2024.zh-Hans.srt
-Movie.zh-Hant.srt
+# 运行所有测试
+pytest
 
-# 先预览匹配结果
-./mkmkv_smart.sh --dry-run ~/Downloads
+# 运行测试并查看覆盖率
+pytest --cov=src/mkmkv_smart --cov-report=term-missing
 
-# 确认无误后执行
-./mkmkv_smart.sh ~/Downloads ~/Movies
+# 使用测试脚本（推荐）
+./run_tests.sh
+
+# 运行特定测试
+pytest tests/test_matcher.py -v
+
+# 代码格式化
+black src/ tests/
+
+# 类型检查
+mypy src/
 ```
 
-**场景 2: 规范命名（精确匹配）**
-```bash
-# 文件结构（文件名前缀一致）
-Movie.2024.mp4
-Movie.2024.zh-Hans.srt
-Movie.2024.en.srt
+### 构建和发布
 
-# 直接执行
-./mkmkv.sh ~/Downloads ~/Movies
+```bash
+# 清理构建文件
+rm -rf dist/ build/ *.egg-info
+
+# 构建分发包
+python -m build
+
+# 验证分发包
+twine check dist/*
+
+# 发布到测试 PyPI
+./publish_to_pypi.sh test
+
+# 发布到正式 PyPI
+./publish_to_pypi.sh prod
+
+# 手动上传
+twine upload dist/*
 ```
 
-### 代码质量检查
+### 版本管理
+
 ```bash
-shellcheck mkmkv.sh  # 静态分析 Bash 脚本
+# 更新版本号（需要同时更新两处）
+# 1. pyproject.toml: version = "x.y.z"
+# 2. src/mkmkv_smart/__init__.py: __version__ = "x.y.z"
+
+# 创建 Git 标签
+git tag -a vx.y.z -m "Release vx.y.z"
+git push origin vx.y.z
+
+# 创建 GitHub Release
+gh release create vx.y.z dist/* \
+  --title "mkmkv-smart vx.y.z" \
+  --notes-file CHANGELOG.md
+```
+
+## 项目结构
+
+```
+mkmkv-smart/
+├── src/mkmkv_smart/          # 源代码
+│   ├── __init__.py           # 包初始化，版本号
+│   ├── cli.py                # 命令行入口，参数解析
+│   ├── config.py             # 配置管理
+│   ├── matcher.py            # 智能匹配算法
+│   ├── normalizer.py         # 文件名规范化
+│   ├── language_utils.py     # 语言代码映射（350+ 语言）
+│   ├── language_detector.py  # 字幕语言检测
+│   ├── audio_detector.py     # 音频语言检测
+│   ├── audio_editor.py       # 音轨语言设置
+│   ├── merger.py             # mkvmerge 封装
+│   └── security_utils.py     # 安全检查
+├── tests/                    # 测试用例（275+ 测试）
+│   ├── test_matcher.py       # 匹配算法测试
+│   ├── test_language_detector.py
+│   ├── test_audio_detector.py
+│   └── ...
+├── docs/                     # 技术文档
+├── examples/                 # 使用示例
+├── pyproject.toml            # 项目配置和依赖
+├── config.example.yaml       # 配置文件示例
+├── run_tests.sh              # 测试运行脚本
+├── publish_to_pypi.sh        # PyPI 发布脚本
+└── .pypirc.template          # PyPI 认证模板
 ```
 
 ## 架构设计
 
-### 核心组件
+### 核心模块
 
-**mkmkv.sh (精确匹配脚本)**
-- 包含完整的语言代码映射表（350+ 语言/区域变体）
-- 智能字幕语言检测：通过正则表达式从文件名提取语言代码
-- 预定义语言优先级：`preset_lang_codes` 数组控制字幕排序
-- 字幕类型支持：空（普通）、CC、SDH
-- 安全过滤机制：防止命令注入（检查第三方参数中的危险字符）
-- **要求**：视频和字幕文件名必须有相同的前缀
+#### 1. CLI 模块 (`cli.py`)
+- 命令行参数解析（argparse）
+- 配置文件加载（YAML）
+- 语言优先级排序（简体中文 > 繁体中文 > 英文）
+- 主流程协调
 
-**mkmkv_smart.sh (智能匹配脚本)** ⭐ 新增
-- 继承 `mkmkv.sh` 的所有语言检测功能
-- **文件名规范化**: 自动去除分辨率、编码、来源等标签
-- **Jaccard 相似度算法**: 计算文件名相似度（0-100%）
-- **智能匹配阈值**: 默认 30%，可在脚本中调整
-- **干运行模式**: `--dry-run` 或 `-n` 参数预览匹配
-- **无需预处理**: 自动处理文件名不一致的情况
+#### 2. 匹配器 (`matcher.py`)
+- **5 种匹配算法**:
+  - `token_set`: 集合匹配（忽略顺序和重复）
+  - `token_sort`: 排序后匹配
+  - `partial`: 部分匹配
+  - `ratio`: 完整字符串匹配
+  - `hybrid`: 混合策略（推荐）
+- **全局最优分配**: 使用 scipy 的匈牙利算法
+- **相似度阈值**: 默认 30%，可配置
 
-**智能匹配算法** (mkmkv_smart.sh:40-110):
+实现示例：
+```python
+# 计算相似度矩阵
+similarity_matrix = []
+for video in videos:
+    row = []
+    for subtitle in subtitles:
+        score = calculate_similarity(video, subtitle, method)
+        row.append(score)
+    similarity_matrix.append(row)
 
-1. **文件名规范化** (normalize_filename 函数):
-   ```bash
-   # 输入: Movie.2024.1080p.BluRay.x264.mp4
-   # 输出: movie 2024
-
-   步骤:
-   - 转小写: ${filename,,}
-   - 去扩展名: ${filename%.*}
-   - 去除标签: sed 清理 1080p, BluRay, x264 等
-   - 统一分隔符: . - _ → 空格
-   - 压缩空格: tr -s ' '
-   ```
-
-2. **相似度计算** (string_similarity 函数):
-   ```bash
-   # Jaccard 相似度 = 交集词数 / 并集词数 × 100
-
-   示例:
-   视频: "movie 2024"           → {movie, 2024}
-   字幕: "movie 2024 zh hans"   → {movie, 2024, zh, hans}
-
-   交集: {movie, 2024}           → 2 个
-   并集: {movie, 2024, zh, hans} → 4 个
-   相似度: 2/4 × 100 = 50%
-   ```
-
-3. **匹配策略**:
-   - 遍历所有字幕文件，计算与视频文件的相似度
-   - 相似度 ≥ 30% 才认为匹配
-   - 同一语言有多个字幕时，选择相似度最高的
-   - 按预定义语言优先级排序
-
-4. **干运行模式**:
-   - 显示规范化后的文件名
-   - 显示每个匹配字幕的相似度百分比
-   - 显示完整的 mkvmerge 命令（格式化输出）
-   - 不实际执行命令
-
-**字幕匹配逻辑** (mkmkv.sh:454-481):
-1. 使用正则表达式匹配文件名模式：`[.-_]([a-z]{2,3}([-_][a-z0-9]{2,})?)([.-_\[](cc|sdh|forced)\]?)?\.(srt|ass)$`
-2. 提取语言代码和字幕类型（cc/sdh/forced）
-3. 验证语言代码是否在 `lang_map` 中存在
-4. 自动清理 SRT 文件中的 HTML 标签（使用 sed）
-
-**特殊字符转义** (mkmkv.sh:439-449):
-- Bash 5.2+ 使用参数扩展 `${matchname//[\[\]\*\?]/\\&}`
-- Bash 5.2 以下逐个转义 `[`, `]`, `*`, `?`
-- 目的：安全地在 find 命令中使用文件名作为 glob 模式
-
-**命令构建模式** (mkmkv.sh:512-556):
-- 使用数组而非字符串拼接（避免 eval 风险）
-- 动态构建 mkvmerge 参数列表
-- 确保每个 MKV 文件仅有一个默认字幕轨道
-
-### 跨平台兼容性
-
-**平台检测** (mkmkv.sh:403-407):
-```bash
-if [ "$(uname)" == "Darwin" ]; then
-  find_param="-s"  # macOS 需要 -s 参数排序
-else
-  find_param=""    # Linux 不需要
-fi
-```
-
-**关键差异**:
-- macOS: `find -s` 排序结果，`sed -i ''` 原地编辑
-- Linux: `find` 默认行为，`sed -i` 原地编辑
-- Bash 版本：建议 5.2+，最低支持 4.0+
-- **sed 正则**: macOS 的 BSD sed 不支持 `\s`（空白符），使用 `tr -s ' '` 替代
-
-### IFS 处理模式
-
-处理含空格的文件名 (mkmkv.sh:426):
-```bash
-IFS=$'\n'  # 设置为换行符
-# ... 处理代码 ...
-# 无需手动恢复，函数结束时自动恢复
-```
-
-**重要**: 智能匹配脚本中的相似度计算函数需要临时恢复 IFS：
-```bash
-string_similarity() {
-  # 保存和恢复 IFS，避免影响 read -ra 分词
-  local old_ifs="$IFS"
-  IFS=$' \t\n'
-  read -ra words1 <<< "$str1"
-  IFS="$old_ifs"
-}
-```
-
-### 错误处理策略
-
-- **依赖检查**: 启动时验证 mkvmerge 是否存在
-- **参数验证**: 检查目录/文件存在性，标准化路径
-- **统计机制**: 使用临时文件传递 total/success/failed 计数（子进程间通信）
-- **退出码**: 有失败文件时返回 1，全部成功返回 0
-
-## 关键实现细节
-
-### 语言代码规范
-- 使用 ISO 639-1 / ISO 3166-1 标准（如 `zh-Hans`, `zh-TW`, `en-US`）
-- 所有比较前转为小写：`${lang,,}`（大小写不敏感）
-- 支持中文区域变体：`zh-CN`, `zh-HK`, `zh-MO`, `zh-TW`, `zh-SG`
-
-### mkvmerge 参数规范
-```bash
---sub-charset N:UTF-8                    # 字幕编码
---language N:lang_code                   # ISO 语言代码
---track-name N:"名称"                    # 轨道名称（支持中英双语）
---default-track-flag N:yes/no            # 默认轨道标记
---track-order 0:0,0:1,0:2...            # 轨道顺序控制
-```
-
-### 添加新语言支持
-在 `lang_map` 关联数组中添加条目：
-```bash
-declare -A lang_map=(
-  ["xx"]="Language Name"
-  ["xx-YY"]="Language Name (Country)"
+# 匈牙利算法找最优匹配
+row_indices, col_indices = linear_sum_assignment(
+    -np.array(similarity_matrix)  # 负值转为最小化问题
 )
 ```
 
-### 字幕优先级排序
+#### 3. 规范化器 (`normalizer.py`)
+- 去除视频标签：分辨率、编码、来源等
+- 保留关键信息：年份、剧集编号
+- 统一分隔符为空格
+- 大小写统一
 
-**Python 版本 (mkmkv-smart)**：
-- 内置智能优先级排序，无需手动配置
-- 自动顺序：
-  1. **简体中文** (优先级 0)：`zh-hans`, `zh-cn`, `zh`, `chs`, `chi`, `zho`, `sc`, `cn`
-  2. **繁体中文** (优先级 1)：`zh-hant`, `zh-tw`, `zh-hk`, `zh-mo`, `cht`, `tc`, `tw`, `hk`
-  3. **英文** (优先级 2)：`en`, `en-us`, `en-gb`, `en-au`, `en-ca`, `eng`
-  4. **其他语言** (优先级 999)：按原顺序排列
-- 实现位置：`cli.py:_get_language_priority()`
-- 大小写不敏感
+规范化流程：
+```python
+# 输入: "Movie.2024.1080p.BluRay.x264.mp4"
+# 输出: "movie 2024"
 
-**Bash 版本 (mkmkv.sh)**：
-编辑 `mkmkv.sh` 或 `mkmkv_smart.sh` 中的 `preset_lang_codes` 数组：
-```bash
-preset_lang_codes=(zh zh-hans en ...)  # 从左到右优先级递减
+1. 转小写
+2. 去扩展名
+3. 移除常见标签（TAGS_TO_REMOVE）
+4. 提取并保留年份、剧集编号
+5. 统一分隔符
+6. 去除多余空格
 ```
 
-### 调整智能匹配阈值
+#### 4. 语言检测 (`language_detector.py`)
+- 使用 langdetect 库检测字幕语言
+- 支持简体中文 vs 繁体中文区分
+- 置信度阈值过滤
+- 自动重命名功能
 
-在 `mkmkv_smart.sh` 中修改相似度阈值（第 231 行）：
-```bash
-# 相似度阈值：30%
-if [ "$similarity" -ge 30 ]; then
+检测逻辑：
+```python
+# 读取字幕文本
+text = extract_subtitle_text(subtitle_file)
+
+# langdetect 检测
+lang = detect(text)
+
+# 简繁体区分
+if lang == "zh-cn":
+    if contains_traditional_chars(text):
+        lang = "zh-hant"
+    else:
+        lang = "zh-hans"
 ```
 
-**阈值建议**:
-- `50`: 严格匹配，适合文件名规范的场景
-- `30`: 平衡模式（默认），处理部分匹配
-- `20`: 宽松匹配，命名差异大但可能误匹配
+#### 5. 音频检测 (`audio_detector.py`)
+- 基于 Faster-Whisper 的 AI 模型
+- 智能多点采样（开头、中间、结尾）
+- 支持 99+ 种语言
+- 可选功能（需要额外安装）
 
-### 调试智能匹配
+#### 6. 合并器 (`merger.py`)
+- 构建 mkvmerge 命令
+- 设置字幕编码、语言代码、轨道名称
+- 控制默认轨道标记
+- 自定义轨道顺序
 
-如果匹配结果不符合预期：
+mkvmerge 命令构建：
+```python
+cmd = ["mkvmerge", "-o", output_file]
 
-1. **使用干运行模式查看相似度**:
+# 添加视频文件
+cmd.extend(["--language", "0:und", video_file])
+
+# 添加字幕（按优先级排序）
+for i, subtitle in enumerate(subtitles):
+    cmd.extend([
+        "--language", f"0:{subtitle.lang_code}",
+        "--sub-charset", "0:UTF-8",
+        "--track-name", f"0:{subtitle.track_name}",
+        "--default-track-flag", f"0:{is_default}",
+        subtitle.file_path
+    ])
+
+# 轨道顺序
+if track_order:
+    cmd.extend(["--track-order", track_order])
+```
+
+### 语言代码系统
+
+#### 语言映射表 (`language_utils.py`)
+- 350+ 语言/区域变体
+- ISO 639-1, ISO 639-2, ISO 3166-1 标准
+- 支持常见别名（CHS/CHT, GB/Big5）
+
+映射示例：
+```python
+LANGUAGE_MAP = {
+    # 中文变体
+    "zh": "Chinese",
+    "zh-hans": "Chinese (Simplified)",
+    "zh-hant": "Chinese (Traditional)",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "chs": "Chinese (Simplified)",  # 别名
+    "cht": "Chinese (Traditional)",  # 别名
+
+    # 英文变体
+    "en": "English",
+    "en-us": "English (US)",
+    "en-gb": "English (UK)",
+    ...
+}
+```
+
+#### 语言优先级 (`cli.py:_get_language_priority()`)
+```python
+# 内置优先级
+PRIORITY_MAP = {
+    # 简体中文（优先级 0）
+    "zh-hans", "zh-cn", "zh", "chs", "chi", "sc", "cn",
+
+    # 繁体中文（优先级 1）
+    "zh-hant", "zh-tw", "zh-hk", "zh-mo", "cht", "tc", "tw", "hk",
+
+    # 英文（优先级 2）
+    "en", "en-us", "en-gb", "en-au", "en-ca", "eng",
+
+    # 其他语言（优先级 999）
+}
+```
+
+### 安全机制 (`security_utils.py`)
+
+1. **路径验证**: 检查路径遍历攻击
+2. **命令注入防护**: 验证 mkvmerge 参数
+3. **文件大小限制**: 防止读取超大文件
+4. **编码检测**: 安全处理多种字符编码
+
+```python
+def validate_path(path: str) -> bool:
+    """防止路径遍历攻击"""
+    abs_path = os.path.abspath(path)
+    if ".." in abs_path:
+        raise SecurityError("Path traversal detected")
+    return True
+
+def sanitize_mkvmerge_args(args: List[str]) -> List[str]:
+    """验证 mkvmerge 参数安全性"""
+    dangerous_chars = [";", "`", "$", "|", "&", ">", "<"]
+    for arg in args:
+        if any(c in arg for c in dangerous_chars):
+            raise SecurityError(f"Dangerous character in arg: {arg}")
+    return args
+```
+
+## 配置文件
+
+### 配置文件位置
+1. `./config.yaml` (当前目录)
+2. `~/.config/mkmkv-smart/config.yaml` (用户配置)
+3. `--config` 参数指定
+
+### 配置示例 (`config.example.yaml`)
+
+```yaml
+# 匹配配置
+match:
+  threshold: 30.0        # 相似度阈值（0-100）
+  method: hybrid         # 匹配算法
+  keep_year: true        # 保留年份
+  keep_episode: true     # 保留剧集编号
+
+# 语言优先级
+language:
+  priority:
+    - zh-hans  # 简体中文
+    - zh-hant  # 繁体中文
+    - en       # 英文
+
+# 语言检测
+language_detection:
+  enabled: true
+  min_confidence: 0.8
+  min_chars: 100
+
+# 音频检测（可选）
+audio_detection:
+  enabled: false
+  model_size: small    # tiny, base, small, medium, large
+  device: cpu          # cpu, cuda
+  compute_type: int8   # int8, float16, float32
+  smart_sampling: true
+```
+
+## 开发工作流
+
+### 添加新功能
+
+1. **创建分支**:
    ```bash
-   ./mkmkv_smart.sh --dry-run /path/to/videos
+   git checkout -b feature/new-feature
    ```
-   查看输出中的 "相似度: XX%" 数值
 
-2. **手动测试规范化结果**:
+2. **编写代码**:
    ```bash
-   # 在脚本中添加调试输出
-   echo "规范化: $video_normalized"
+   # 在 src/mkmkv_smart/ 中添加新模块
+   # 遵循现有代码风格
    ```
 
-3. **检查语言代码映射**:
-   确保字幕文件的语言代码在 `lang_map` 中存在
+3. **编写测试**:
+   ```bash
+   # 在 tests/ 中添加对应测试
+   # 确保覆盖率 > 70%
+   pytest tests/test_new_feature.py -v
+   ```
 
-4. **常见问题**:
-   - 所有相似度都是 0%: 检查 IFS 设置
-   - 未找到匹配: 降低阈值或检查文件名格式
-   - 误匹配: 提高阈值
+4. **代码质量检查**:
+   ```bash
+   black src/ tests/              # 格式化
+   mypy src/                      # 类型检查
+   pytest --cov=src/mkmkv_smart   # 测试覆盖率
+   ```
 
-## 代码风格约定
+5. **提交更改**:
+   ```bash
+   git add .
+   git commit -m "feat: add new feature"
+   git push origin feature/new-feature
+   ```
 
-- **Shebang**: 统一使用 `#!/usr/bin/env bash`
-- **注释语言**: 中文，描述意图而非实现
-- **变量命名**: 小写 + 下划线（`source_dir`, `lang_valid`）
-- **缩进**: 2 空格
-- **引号**: 变量和路径必须双引号（防止空格问题）
-- **命令续行**: 使用反斜杠 `\`
+6. **创建 PR**:
+   ```bash
+   gh pr create --title "feat: add new feature" \
+     --body "Description of changes"
+   ```
 
-## 安全注意事项
+### 发布新版本
 
-1. **参数过滤** (mkmkv.sh:393): 检查第三方参数，拒绝 `;`, `` ` ``, `$`, `|`, `&`, `>`, `\`
-2. **路径标准化**: 使用 `$(cd "$dir" && pwd)` 获取绝对路径
-3. **数组执行**: 优先使用 `"${array[@]}"` 而非字符串拼接
-4. **临时文件**: 修改字幕前创建临时副本，成功后才覆盖原文件
+参考 [PyPI_PUBLISH.md](PyPI_PUBLISH.md) 完整流程。
 
-## 依赖要求
+快速步骤：
 
-**必需**:
-- `mkvmerge` (mkvtoolnix): 媒体封装工具
-  - macOS: `brew install mkvtoolnix`
-  - Linux: `apt install mkvtoolnix` 或 `yum install mkvtoolnix`
-- `bash`: 4.0+ (推荐 5.2+)
+1. **更新版本号**:
+   ```bash
+   # pyproject.toml
+   version = "1.2.0"
 
-**可选**:
-- `shellcheck`: Bash 静态分析工具（开发时推荐）
-- `sed`: 文本处理（字幕标签清理）
+   # src/mkmkv_smart/__init__.py
+   __version__ = "1.2.0"
+   ```
 
-## 推荐工作流
+2. **更新 CHANGELOG.md**
 
-### 日常使用（杂乱命名）
+3. **测试**:
+   ```bash
+   ./run_tests.sh
+   ```
 
-```bash
-# 1. 下载视频和字幕到同一目录
-cd ~/Downloads/Movies
+4. **提交和标签**:
+   ```bash
+   git add .
+   git commit -m "chore: bump version to 1.2.0"
+   git tag -a v1.2.0 -m "Release v1.2.0"
+   git push origin main --tags
+   ```
 
-# 2. 预览匹配结果
-mkmkv-smart --dry-run .
+5. **构建**:
+   ```bash
+   rm -rf dist/ build/
+   python -m build
+   twine check dist/*
+   ```
 
-# 3. 检查输出中的相似度，确认匹配正确
+6. **发布**:
+   ```bash
+   # 测试发布（推荐）
+   ./publish_to_pypi.sh test
 
-# 4. 执行合并
-mkmkv-smart . ~/Movies/Processed
+   # 正式发布
+   ./publish_to_pypi.sh prod
+   ```
 
-# 5. 清理原始文件
-rm *.mp4 *.srt
+7. **GitHub Release**:
+   ```bash
+   gh release create v1.2.0 dist/* \
+     --title "mkmkv-smart v1.2.0" \
+     --notes-file CHANGELOG.md
+   ```
+
+## 测试策略
+
+### 测试覆盖
+
+- **单元测试**: 每个模块独立测试
+- **集成测试**: 端到端流程测试
+- **覆盖率目标**: > 78%
+- **测试数量**: 275+ 测试用例
+
+### 测试组织
+
+```python
+# tests/test_matcher.py
+class TestMatcher:
+    def test_token_set_matching(self):
+        """测试 Token Set 匹配算法"""
+
+    def test_hybrid_matching(self):
+        """测试混合匹配策略"""
+
+    def test_hungarian_algorithm(self):
+        """测试匈牙利算法分配"""
+
+# tests/test_language_detector.py
+class TestLanguageDetector:
+    def test_detect_simplified_chinese(self):
+        """测试简体中文检测"""
+
+    def test_detect_traditional_chinese(self):
+        """测试繁体中文检测"""
 ```
 
-### 批量处理（规范命名）
+### 运行测试
 
 ```bash
-# 如果文件名已经规范（如通过自动化工具下载）
-mkmkv-smart ~/Downloads ~/Movies
+# 所有测试
+pytest
+
+# 特定模块
+pytest tests/test_matcher.py
+
+# 特定测试
+pytest tests/test_matcher.py::TestMatcher::test_hybrid_matching
+
+# 详细输出
+pytest -v
+
+# 覆盖率报告
+pytest --cov=src/mkmkv_smart --cov-report=html
+open htmlcov/index.html
 ```
 
-### 自定义字幕顺序
+## 依赖管理
+
+### 核心依赖 (必需)
+
+在 `pyproject.toml` 的 `dependencies`:
+```toml
+dependencies = [
+    "rapidfuzz>=3.0.0",   # 模糊匹配
+    "pyyaml>=6.0",        # 配置文件
+    "rich>=13.0.0",       # 终端 UI
+    "langdetect>=1.0.9",  # 语言检测
+    "scipy>=1.9.0",       # 匈牙利算法
+]
+```
+
+### 可选依赖
+
+#### 开发依赖 (`dev`)
+```toml
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+]
+```
+
+#### 音频检测 (`audio`)
+```toml
+audio = [
+    "faster-whisper>=1.0.0",  # AI 音频识别
+]
+```
+
+### 安装依赖
 
 ```bash
-# 需要固定的字幕顺序时
-mkmkv-smart --track-order 0:0,0:1,1:0,2:0 ~/Downloads ~/Movies
+# 基础功能
+pip install .
+
+# 包含开发工具
+pip install ".[dev]"
+
+# 包含音频检测
+pip install ".[audio]"
+
+# 所有功能
+pip install ".[dev,audio]"
 ```
 
 ## 故障排除
 
-### 问题：智能匹配找不到字幕
+### 问题：找不到 mkvmerge
+
+**错误**: `FileNotFoundError: mkvmerge not found`
+
+**解决**:
+```bash
+# macOS
+brew install mkvtoolnix
+
+# Ubuntu/Debian
+sudo apt install mkvtoolnix
+
+# 验证
+mkvmerge --version
+```
+
+### 问题：字幕匹配失败
 
 **可能原因**:
-1. 相似度低于阈值（30%）
-2. 语言代码不在映射表中
-3. 字幕文件名不符合语言代码格式
+1. 相似度低于阈值
+2. 文件名格式特殊
 
-**解决方案**:
+**解决**:
 ```bash
-# 1. 使用干运行查看详情
-./mkmkv_smart.sh --dry-run /path
+# 1. 使用干运行查看相似度
+mkmkv-smart --dry-run ~/Downloads
 
-# 2. 检查字幕文件名格式
-# 正确: Movie.zh-Hans.srt
-# 错误: Movie.chs.srt (chs 不是标准代码)
+# 2. 降低阈值
+mkmkv-smart ~/Downloads --threshold 20
 
-# 3. 降低阈值或手动重命名字幕文件
+# 3. 使用配置文件
+mkmkv-smart ~/Downloads --config config.yaml
 ```
 
-### 问题：相似度计算不准确
+### 问题：语言检测不准确
 
-**可能原因**: 文件名包含过多无关信息
+**可能原因**: 字幕文本太短或编码问题
 
-**解决方案**:
+**解决**:
 ```bash
-# 调整 normalize_filename 函数中的 sed 规则
-# 添加更多需要过滤的标签
+# 检查字幕文件编码
+file -I subtitle.srt
+
+# 转换编码为 UTF-8
+iconv -f GBK -t UTF-8 subtitle.srt > subtitle_utf8.srt
+
+# 调整检测参数（config.yaml）
+language_detection:
+  min_confidence: 0.7  # 降低置信度要求
+  min_chars: 50        # 降低最小字符数
 ```
 
-### 问题：误匹配到错误的字幕
+### 问题：音频检测失败
 
-**可能原因**: 阈值太低或多个文件相似度相同
+**可能原因**: Python 版本不兼容或依赖未安装
 
-**解决方案**:
+**解决**:
 ```bash
-# 提高阈值到 40% 或 50%
-# 或使用精确匹配脚本 mkmkv.sh
+# 检查 Python 版本（需要 3.8-3.13）
+python --version
+
+# 安装音频检测依赖
+pip install "mkmkv-smart[audio]"
+
+# 使用 CPU 模式（如果 GPU 有问题）
+# config.yaml:
+audio_detection:
+  device: cpu
+  compute_type: int8
 ```
+
+### 问题：测试失败
+
+**解决**:
+```bash
+# 清理缓存
+rm -rf .pytest_cache htmlcov .coverage
+
+# 重新安装依赖
+pip install -e ".[dev]"
+
+# 运行测试
+pytest -v
+```
+
+## 代码风格
+
+### Python 风格
+
+- **格式化**: Black (line-length=100)
+- **类型提示**: 所有公共函数必须有类型注解
+- **文档字符串**: Google 风格
+- **命名**:
+  - 变量/函数: `snake_case`
+  - 类: `PascalCase`
+  - 常量: `UPPER_SNAKE_CASE`
+
+### 示例
+
+```python
+from typing import List, Optional, Tuple
+
+def calculate_similarity(
+    video_name: str,
+    subtitle_name: str,
+    method: str = "hybrid",
+    threshold: float = 30.0
+) -> float:
+    """计算文件名相似度。
+
+    Args:
+        video_name: 视频文件名
+        subtitle_name: 字幕文件名
+        method: 匹配算法
+        threshold: 相似度阈值
+
+    Returns:
+        相似度分数 (0-100)
+
+    Raises:
+        ValueError: 如果 method 不支持
+    """
+    if method not in SUPPORTED_METHODS:
+        raise ValueError(f"Unsupported method: {method}")
+
+    # 实现...
+    return score
+```
+
+## 性能优化
+
+### 匹配性能
+
+- 使用 rapidfuzz（C 扩展，比 fuzzywuzzy 快 10-100x）
+- 缓存规范化结果
+- 批量处理文件
+
+### 语言检测优化
+
+- 限制读取字幕文件大小（前 100KB）
+- 缓存检测结果
+- 跳过过短文本
+
+### 音频检测优化
+
+- 智能采样（多点采样，选最佳结果）
+- 限制采样时长（默认 30 秒）
+- 使用较小的模型（small > medium > large）
+
+## 相关文档
+
+- [README.md](README.md) - 项目介绍
+- [INSTALL.md](INSTALL.md) - 安装指南
+- [QUICKSTART.md](QUICKSTART.md) - 快速开始
+- [PyPI_PUBLISH.md](PyPI_PUBLISH.md) - PyPI 发布流程
+- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
+- [CHANGELOG.md](CHANGELOG.md) - 变更日志
+
+技术文档：
+- [docs/LANGUAGE_DETECTION.md](docs/LANGUAGE_DETECTION.md) - 语言检测实现
+- [docs/AUDIO_DETECTION_IMPLEMENTATION.md](docs/AUDIO_DETECTION_IMPLEMENTATION.md) - 音频检测实现
+- [docs/FEATURE_COMPARISON.md](docs/FEATURE_COMPARISON.md) - 功能对比
